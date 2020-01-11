@@ -1,0 +1,26 @@
+Transform: "AWS::Serverless-2016-10-31"
+Description: "example template"
+
+Resources:
+  Api:
+    Type: "AWS::Serverless::Api"
+    Properties:
+      StageName: test
+      TracingEnabled: false
+      EndpointConfiguration: REGIONAL
+  ServerlessExample:
+    Type: "AWS::Serverless::Function"
+    Properties:
+      FunctionName: serverless_example_lambda
+      Runtime: nodejs10.x
+      Handler: main.handler
+      CodeUri:
+        Bucket: aws-community-day-example
+        Key: v1.0.0/example.zip
+      Events:
+        PublicApi:
+          Type: Api
+          Properties:
+            Path: /
+            Method: GET
+            RestApiId: !Ref Api
