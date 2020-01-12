@@ -9,7 +9,7 @@
 
 ⚠️**Terraform을 자세히 설명하지 않습니다. Terraform을 다양한 측면에서 AWS SAM과 비교하지 않습니다**
 - API gateway와 Lambda를 사용하여 Infrastructure as Code를 구성할 경우로 제한하여 Terraform과 비교합니다.
-- Terraform과 AWS SAM에 대한 비교는 저의 제한적인 경험을 바탕으로한 개인적인 의견입니다.
+- Terraform과 AWS SAM에 대한 비교는 저의 **제한적인 경험**을 바탕으로한 개인적인 의견입니다.
 
 **예제 코드는 다음 환경에서 작성되고 테스트되었습니다.**
 - MacOS 
@@ -18,8 +18,7 @@
 - aws-sam-cli v0.39.0
 
 ## 나에게 주어진 Challenge
-- 짧은 기간에 서비스를 개발해야 되었기 때문에 Serverless로 구성하여 프로젝트가 진행.\
- (API Gateway, Lambda, DynamoDB, SQS, SNS)
+- 짧은 기간에 Serverless로 구성하여 프로젝트가 진행.(API Gateway, Lambda, DynamoDB, SQS, SNS)
 - Infrastrucre as Code로 Resource들이 관리되어야 함.
 - 기존 AWS ECS로 구성된 서비스들이 존재하고 Terraform으로 작성되어 있었음.
 
@@ -144,7 +143,7 @@ Resources:
             RestApiId: !Ref Api
 ```
 
-`$ bash deploy.sh`를 하면 아래처럼 resource들이 생기는 것을 알 수 있습니다. Terraform으로 resource들을 별도로 정의해서 만들어줬지만 SAM Template는 필요한 Resource들을 자동으로 만들어주고 있습니다.
+Sample code `ex02.create_resources_by_sam/deploy.sh`를 실행하면 아래처럼 resource들이 생기는 것을 알 수 있습니다. Terraform으로 resource들을 별도로 정의해서 만들어줬지만 SAM Template는 필요한 Resource들을 자동으로 만들어주고 있습니다.
 
 | Operation | ResourceType                |
 | --------- | --------------------------- |
@@ -155,5 +154,15 @@ Resources:
 | + Add     | AWS::IAM::Role              |
 | + Add     | AWS::Lambda::Function       |
 
-😤하지만 Terraform도 module들을 잘 구성하면 압축해서 이쁘게 사용할 수 있을 것입니다. \
-[Terraform Registry](https://registry.terraform.io/)에 보면 [lambda-api-gateway](https://registry.terraform.io/modules/techjacker/lambda-api-gateway/aws/1.0.2)와 같이 이미 누군가 만들어진 module들이 존재합니다.
+I ♥️ terraform! 
+
+Terraform도 module들을 잘 구성하면 압축해서 이쁘게 사용할 수 있을 것이라 생각을 합니다. [Terraform Registry](https://registry.terraform.io/)에 보면 [lambda-api-gateway](https://registry.terraform.io/modules/techjacker/lambda-api-gateway/aws/1.0.2)와 같이 이미 누군가 만들어진 module들이 존재합니다. 
+
+🤓게으른 개발자
+
+하지만 저는 AWS SAM이 API Gateway와 Lambda로 구성할 때 간단하고 직관적이다고 생각했습니다. `AutoPublishAlias`를 통해서 Lambda version과 alias를 쉽게 설정할 수도 있고, `X-ray`를 연동할 때 `Tracing`를 `Active`로 바꿔주면 되고 `DeploymentPreference`를 통해서 `Canary 배포`를 간단하게 설정할 수 있었습니다. 
+
+## AWS SAM Template
+
+SAM Template에 대한 specification이 잘 정리되어 있습니다. 저 자세한 내용은 [여기서](https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md) 확인하세요.
+

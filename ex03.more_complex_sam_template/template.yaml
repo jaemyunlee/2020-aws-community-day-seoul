@@ -1,0 +1,117 @@
+Transform: "AWS::Serverless-2016-10-31"
+Description: "example template"
+Globals:
+  Function:
+    Runtime: python3.6
+    MemorySize: 512
+    Timeout: 10
+    Handler: handler.lambda_handler
+    Tracing: PassThrough
+    AutoPublishAlias: !Ref Environment
+    Environment:
+      Variables:
+        SERVICE_NAME: exampleService
+        ENV: !Ref Environment
+        LOG_LEVEL: !FindInMap [Config, !Ref Environment, LogLevel]
+    Layers:
+      - !Ref ApplicationLayer
+Parameters:
+  Environment:
+    Type: String
+    Default: test
+    AllowedValues:
+      - test
+      - beta
+      - prod
+Mappings:
+  Config:
+    test:
+      LogLevel: DEBUG
+    beta:
+      LogLevel: INFO
+    prod:
+      LogLevel: ERROR
+Resources:
+  Api:
+    Type: "AWS::Serverless::Api"
+    Properties:
+      StageName: !Ref Environment
+      TracingEnabled: false
+      EndpointConfiguration: REGIONAL
+      Auth:
+        Authorizers:
+          Auth:
+            FunctionPayloadType: TOKEN
+            FunctionArn: !GetAtt Auth.Arn
+            Identity:
+              Header: authorization
+      Models:
+        RegisterCat:
+          $schema: "http://json-schema.org/draft-04/hyper-schema#"
+          title: RegisterCat
+          type: object
+          properties:
+            name:
+              type: string
+              maxLength: 32
+            species:
+              type: string
+              maxLength: 32
+            age:
+              type: integer
+              minimum: 0
+              maximum: 100
+          required:
+            - name
+            - species
+            - age
+  Auth:
+    Type: "AWS::Serverless::Function"
+    Properties:
+      FunctionName: !Join [ "-", [example, !Ref Environment, auth]]
+      CodeUri: authorizer/
+  RegisterCat:
+    Type: "AWS::Serverless::Function"
+    Properties:
+      FunctionName: !Join ["-", [example, !Ref Environment, register, cat]]
+      CodeUri: register_cat/
+      Environment:
+        Variables:
+          TABLE_NAME: !Join ["-", [!Ref Environment, cat, table]]
+      Policies:
+        - Statement:
+            - Sid: CatTable
+              Effect: Allow
+              Action:
+                - "dynamodb:PutItem"
+              Resource: !GetAtt CatTable.Arn
+      Events:
+        PublicApi:
+          Type: Api
+          Properties:
+            Path: /cat/
+            Method: POST
+            RestApiId: !Ref Api
+            RequestModel:
+              Model: RegisterCat
+              Required: true
+  ApplicationLayer:
+    Type: "AWS::Serverless::LayerVersion"
+    Properties:
+      LayerName: exampleService
+      Description: example service application code
+      ContentUri: application/
+      CompatibleRuntimes:
+        - python3.6
+  CatTable:
+    Type: 'AWS::DynamoDB::Table'
+    DeletionPolicy: Retain
+    Properties:
+      TableName: !Join ["-", [!Ref Environment, cat, table]]
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: name
+          AttributeType: S
+      KeySchema:
+        - KeyType: HASH
+          AttributeName: name

@@ -1,5 +1,10 @@
 .idea
+.vscode
 
 # Terraform
 .terraform
 terraform.tfstate
+
+# SAM
+.aws-sam
+packaged.yaml
