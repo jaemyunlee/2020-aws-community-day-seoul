@@ -1,0 +1,35 @@
+version: '3'
+services:
+  dynamodb:
+    image: amazon/dynamodb-local
+    ports:
+      - "3306:3306"
+    networks:
+      - my_network
+    volumes:
+      - db-data:/home/dynamodblocal/data
+  localstack:
+    image: localstack/localstack
+    ports:
+      - "4567-4584:4567-4584"
+      - "8080:8080"
+    networks:
+      - my_network
+    environment:
+      - SERVICES=sqs
+  dbsetup:
+    build: ./
+    networks:
+      - my_network
+    depends_on:
+      - dynamodb
+      - localstack
+    command: ["./wait_for_resource.sh"]
+    environment:
+      - AWS_ACCESS_KEY_ID=foo
+      - AWS_SECRET_ACCESS_KEY=bar
+      - AWS_DEFAULT_REGION=ap-northeast-2
+volumes:
+  db-data:
+networks:
+  my_network:

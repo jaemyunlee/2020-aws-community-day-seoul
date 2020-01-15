@@ -1,10 +1,11 @@
 def lambda_handler(event, context):
     token = event.get("authorizationToken")
 
-    if token == 'user':
+    if token == 'catlover':
         return generate_policy('Georges St-Pierre', 'Allow')
     else:
         return generate_policy(None, 'Deny')
+
 
 def generate_policy(principal_id, effect):
     if effect:

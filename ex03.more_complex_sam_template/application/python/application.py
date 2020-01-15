@@ -1,21 +1,16 @@
-# driver쪽의 port는 command
 import abc
 import enum
+import json
 import os
-from typing import NamedTuple
 
-# import requests
+import requests
+from dynamodb_json import json_util as dynamodb_json
 
-
-RegisterCat = NamedTuple('RegisterCat', [('species', str),('name', str), ('age', int)])
-FindCat = NamedTuple('FindCat', [('name', str)])
-
-# model
 
 class AgeLevel(enum.Enum):
-    baby = 'BABY'
-    young = 'YOUNG'
-    old = 'OLD'
+    baby = 'baby'
+    young = 'young'
+    old = 'old'
 
 
 class RecommendedFood(enum.Enum):
@@ -23,8 +18,9 @@ class RecommendedFood(enum.Enum):
     young = 'ACTIVE POWER FOOD'
     old = 'ANTI-AGING FOOD'
 
+
 class Cat:
-    
+
     def __init__(self, species, name, age):
         self.species = species
         self.name = name
@@ -32,28 +28,19 @@ class Cat:
 
     def get_age_level(self):
         if self.age < 1:
-            return AgeLevel.baby
+            return AgeLevel.baby.value
         elif self.age < 8:
-            return AgeLevel.young
+            return AgeLevel.young.value
         else:
-            return AgeLevel.old
+            return AgeLevel.old.value
 
-# use case
-
-def register_cat(session, cmd):
-    cat = Cat(cmd.species, cmd.name, cmd.age)
-    session.add(cat)
-
-
-def find_cat(session, cmd):
-    cat = session.get(cmd.name)
-    return cat
-
-
-def get_cat(something, cmd):
-    pass
-
-# driven쪽의 port는
+    def json(self):
+        return json.dumps({
+            'species': self.species,
+            'name': self.name,
+            'age': self.age,
+            'level': self.get_age_level()
+        })
 
 
 class CatNotRegisteredException(Exception):
@@ -61,7 +48,7 @@ class CatNotRegisteredException(Exception):
 
 
 class NewCat(abc.ABC):
-    
+
     @abc.abstractmethod
     def add(self, cat):
         pass
@@ -76,13 +63,12 @@ class NewCat(abc.ABC):
             raise CatNotRegisteredException()
         return cat
 
-# 이제 driven쪽 adaptor는 짝퉁일수도 있고, 이제 Database에 직접 연결 할 수도 있겠지!
 
 class FakeCatRepository(NewCat):
 
     def __init__(self):
         self.cats = []
-    
+
     def add(self, cat):
         self.cats.append(cat)
 
@@ -90,62 +76,89 @@ class FakeCatRepository(NewCat):
         for cat in self.cats:
             if cat.name == name:
                 return cat
-        
+
         return None
 
 
 class DynamoDBCatRepository(NewCat):
-    
+
     def __init__(self, session, table_name):
         self.session = session
         self.table_name = table_name
-    
+
     def add(self, cat):
         self.session.put_item(
             TableName=self.table_name,
             Item={
                 'species': {'S': cat.species},
                 'name': {'S': cat.name},
-                'age': {'N': cat.age}
+                'age': {'N': str(cat.age)}
             }
         )
 
     def _get(self, name):
-        self.session.get_item(
+        response = self.session.get_item(
             TableName=self.table_name,
             Key={'name': {'S': name}}
         )
+        item = response.get('Item')
+        if not item:
+            return None
+        data = dynamodb_json.loads(item)
+        return Cat(**data)
 
 
-class Message:
+class Message(abc.ABC):
 
-    def __init__(self, cat_name, cat_age_level):
-        self.cat_name = cat_name
-        self.cat_age_level = cat_age_level
+    @abc.abstractmethod
+    def generate_message(self, message):
+        pass
+
+
+class NewCatMessage(Message):
+
+    def __init__(self, name, age_level):
+        self.name = name
+        self.age_level = age_level
 
     def _get_recommended_food(self):
-        food = getattr(RecommendedFood, self.cat_age_level)
+        food = getattr(RecommendedFood, self.age_level)
         return food.value
 
     def generate_message(self):
-        return f'{self.cat_name} needs {self._get_recommended_food()}!'
+        return f'{self.name} needs {self._get_recommended_food()}!'
 
 
 class MessageSender(abc.ABC):
+
+    def __init__(self, message):
+        self.message = message
 
     @abc.abstractmethod
     def _send(self, message):
         pass
 
-    def send(self, message):
-        self._send(message)
+    def send(self):
+        self._send(self.message)
 
 
-# class SlackSender(MessageSender):
+class SlackSender(MessageSender):
 
-#     def _send(self, message):
-#         r = requests.post(url=os.getenv('SLACK_URL'), json={'message': message})
-#         if r.status_code == '200':
-#             return True
-#         else:
-#             return False
+    def _send(self, message):
+        msg = self.message.generate_message()
+        r = requests.post(
+                url=os.getenv('SLACK_URL'),
+                json={'message': msg}
+            )
+        if r.status_code == '200':
+            return True
+        else:
+            return False
+
+
+class FakeSender(MessageSender):
+
+    def _send(self, message):
+        msg = self.message.generate_message()
+        print(msg)
+        return True

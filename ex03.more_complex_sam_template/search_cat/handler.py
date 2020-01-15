@@ -1,6 +1,5 @@
-import json
 import os
-from application import Cat, DynamoDBCatRepository
+from application import DynamoDBCatRepository
 from lambda_logger import logger
 import boto3
 
@@ -11,11 +10,11 @@ if os.getenv('ENV') == 'test':
 
 def lambda_handler(event, context):
     logger.debug(event)
-    body = json.loads(event.get('body'))
-    cat = Cat(**body)
+    query__param = event.get('queryStringParameters')
     repository = DynamoDBCatRepository(session, os.environ['TABLE_NAME'])
-    repository.add(cat)
+    cat = repository.get(**query__param)
 
     return {
-        'statusCode': 201
+        'statusCode': 200,
+        'body': cat.json()
     }
