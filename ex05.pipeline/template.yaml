@@ -34,13 +34,9 @@ Mappings:
     prod:
       LogLevel: ERROR
       TableName: prod-cat-table
-Conditions:
-  IsLocal: !Equals [!Ref Environment, test]
-  DoNotCreateOnLocal: !Not [Condition: IsLocal]
 Resources:
   Api:
     Type: "AWS::Serverless::Api"
-    Condition: DoNotCreateOnLocal
     Properties:
       StageName: !Ref Environment
       TracingEnabled: false
@@ -74,13 +70,11 @@ Resources:
             - age
   Auth:
     Type: "AWS::Serverless::Function"
-    Condition: DoNotCreateOnLocal
     Properties:
       FunctionName: !Join [ "-", [example, !Ref Environment, auth]]
       CodeUri: authorizer/
   RegisterCat:
     Type: "AWS::Serverless::Function"
-    Condition: DoNotCreateOnLocal
     Properties:
       FunctionName: !Join ["-", [example, !Ref Environment, register, cat]]
       CodeUri: register_cat/
@@ -108,7 +102,6 @@ Resources:
               Required: true
   SearchCat:
     Type: "AWS::Serverless::Function"
-    Condition: DoNotCreateOnLocal
     Properties:
       FunctionName: !Join ["-", [example, !Ref Environment, search, cat]]
       CodeUri: search_cat/
@@ -137,7 +130,6 @@ Resources:
                   Caching: true
   SendMessage:
     Type: "AWS::Serverless::Function"
-    Condition: DoNotCreateOnLocal
     Properties:
       FunctionName: !Join ["-", [example, !Ref Environment, send, message]]
       CodeUri: send_message/
@@ -153,7 +145,6 @@ Resources:
             StartingPosition: LATEST
   ApplicationLayer:
     Type: "AWS::Serverless::LayerVersion"
-    Condition: DoNotCreateOnLocal
     Properties:
       LayerName: exampleService
       Description: example service application code
@@ -162,7 +153,6 @@ Resources:
         - python3.6
   CatTable:
     Type: 'AWS::DynamoDB::Table'
-    Condition: DoNotCreateOnLocal
     Properties:
       TableName: !FindInMap [Config, !Ref Environment, TableName]
       BillingMode: PROVISIONED
