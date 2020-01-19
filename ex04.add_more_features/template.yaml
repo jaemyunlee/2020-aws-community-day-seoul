@@ -1,0 +1,192 @@
+Transform: "AWS::Serverless-2016-10-31"
+Description: "example template"
+Globals:
+  Function:
+    Runtime: python3.6
+    MemorySize: 512
+    Timeout: 10
+    Handler: handler.lambda_handler
+    Tracing: PassThrough
+    AutoPublishAlias: !Ref Environment
+    Environment:
+      Variables:
+        SERVICE_NAME: exampleService
+        ENV: !Ref Environment
+        LOG_LEVEL: !FindInMap [Config, !Ref Environment, LogLevel]
+        LAZY_CAT: !Ref LazyCat
+    Layers:
+      - !Ref ApplicationLayer
+Parameters:
+  Environment:
+    Type: String
+    Default: test
+    AllowedValues:
+      - test
+      - beta
+      - prod
+  LazyCat:
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: theLaziestCat
+Mappings:
+  Config:
+    test:
+      LogLevel: DEBUG
+      TableName: test-cat-table
+    beta:
+      LogLevel: INFO
+      TableName: beta-cat-table
+    prod:
+      LogLevel: ERROR
+      TableName: prod-cat-table
+Conditions:
+  IsLocal: !Equals [!Ref Environment, test]
+  DoNotCreateOnLocal: !Not [Condition: IsLocal]
+Resources:
+  Api:
+    Type: "AWS::Serverless::Api"
+    Condition: DoNotCreateOnLocal
+    Properties:
+      StageName: !Ref Environment
+      TracingEnabled: false
+      EndpointConfiguration: REGIONAL
+      Auth:
+        Authorizers:
+          Auth:
+            FunctionPayloadType: TOKEN
+            FunctionArn: !GetAtt Auth.Arn
+            Identity:
+              Header: authorization
+      Models:
+        RegisterCat:
+          $schema: "http://json-schema.org/draft-04/hyper-schema#"
+          title: RegisterCat
+          type: object
+          properties:
+            name:
+              type: string
+              maxLength: 32
+            species:
+              type: string
+              maxLength: 32
+            age:
+              type: integer
+              minimum: 0
+              maximum: 100
+          required:
+            - name
+            - species
+            - age
+  Auth:
+    Type: "AWS::Serverless::Function"
+    Condition: DoNotCreateOnLocal
+    Properties:
+      FunctionName: !Join [ "-", [example, !Ref Environment, auth]]
+      CodeUri: authorizer/
+  RegisterCat:
+    Type: "AWS::Serverless::Function"
+    Condition: DoNotCreateOnLocal
+    Properties:
+      FunctionName: !Join ["-", [example, !Ref Environment, register, cat]]
+      CodeUri: register_cat/
+      Environment:
+        Variables:
+          TABLE_NAME: !FindInMap [Config, !Ref Environment, TableName]
+      Policies:
+        - Statement:
+            - Sid: CatTable
+              Effect: Allow
+              Action:
+                - "dynamodb:PutItem"
+              Resource: !GetAtt CatTable.Arn
+      Events:
+        PublicApi:
+          Type: Api
+          Properties:
+            Path: /cat/
+            Method: POST
+            RestApiId: !Ref Api
+            Auth:
+              Authorizer: Auth
+            RequestModel:
+              Model: RegisterCat
+              Required: true
+  SearchCat:
+    Type: "AWS::Serverless::Function"
+    Condition: DoNotCreateOnLocal
+    Properties:
+      FunctionName: !Join ["-", [example, !Ref Environment, search, cat]]
+      CodeUri: search_cat/
+      Environment:
+        Variables:
+          TABLE_NAME: !FindInMap [Config, !Ref Environment, TableName]
+      Policies:
+        - Statement:
+            - Sid: CatTable
+              Effect: Allow
+              Action:
+                - "dynamodb:GetItem"
+              Resource: !GetAtt CatTable.Arn
+      Events:
+        PublicApi:
+          Type: Api
+          Properties:
+            Path: /cat/
+            Method: GET
+            RestApiId: !Ref Api
+            Auth:
+              Authorizer: Auth
+            RequestParameters:
+              - method.request.querystring.name:
+                  Required: true
+                  Caching: true
+  SendMessage:
+    Type: "AWS::Serverless::Function"
+    Condition: DoNotCreateOnLocal
+    Properties:
+      FunctionName: !Join ["-", [example, !Ref Environment, send, message]]
+      CodeUri: send_message/
+      Policies:
+        - DynamoDBStreamReadPolicy:
+            TableName: !FindInMap [Config, !Ref Environment, TableName]
+            StreamName: "*"
+      Events:
+        RegisterCatStream:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt CatTable.StreamArn 
+            StartingPosition: LATEST
+  ApplicationLayer:
+    Type: "AWS::Serverless::LayerVersion"
+    Condition: DoNotCreateOnLocal
+    Properties:
+      LayerName: exampleService
+      Description: example service application code
+      ContentUri: application/
+      CompatibleRuntimes:
+        - python3.6
+  CatTable:
+    Type: 'AWS::DynamoDB::Table'
+    Condition: DoNotCreateOnLocal
+    Properties:
+      TableName: !FindInMap [Config, !Ref Environment, TableName]
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: name
+          AttributeType: S
+      KeySchema:
+        - KeyType: HASH
+          AttributeName: name
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
+  RegisterCatLogGroup:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./nestedStack.yaml
+      Parameters:
+        LambdaName: !Join ["-", [example, !Ref Environment, register, cat]]
+  SearchCatLogGroup:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./nestedStack.yaml
+      Parameters:
+        LambdaName: !Join ["-", [example, !Ref Environment, search, cat]]

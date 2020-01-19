@@ -1,0 +1,4 @@
+templates:
+- template.yaml
+append_rules:
+- lint_custom_rules/

@@ -1,0 +1,1 @@
+sam local invoke --event ./test/dynamodb_stream_event.json SendMessage

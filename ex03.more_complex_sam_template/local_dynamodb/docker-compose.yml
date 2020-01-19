@@ -1,0 +1,24 @@
+version: '3'
+services:
+  dynamodb:
+    image: amazon/dynamodb-local
+    ports:
+      - "3306:3306"
+    networks:
+      - my_network
+    volumes:
+      - db-data:/home/dynamodblocal/data
+  dbsetup:
+    build: ./
+    networks:
+      - my_network
+    depends_on:
+      - dynamodb
+    environment:
+      - AWS_ACCESS_KEY_ID=foo
+      - AWS_SECRET_ACCESS_KEY=bar
+      - AWS_DEFAULT_REGION=ap-northeast-2
+volumes:
+  db-data:
+networks:
+  my_network:

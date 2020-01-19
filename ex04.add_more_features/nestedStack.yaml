@@ -1,0 +1,10 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  LambdaName:
+    Type: String
+Resources: 
+  LambdaLog:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${LambdaName}"
+      RetentionInDays: 3

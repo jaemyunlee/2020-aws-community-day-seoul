@@ -1,0 +1,7 @@
+project:
+  name: my-cfn-project
+  regions:
+  - ap-northeast-2
+tests:
+  default:
+    template: packaged.yaml

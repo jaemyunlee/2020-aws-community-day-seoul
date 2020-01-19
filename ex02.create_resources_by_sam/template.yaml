@@ -1,6 +1,5 @@
 Transform: "AWS::Serverless-2016-10-31"
 Description: "example template"
-
 Resources:
   Api:
     Type: "AWS::Serverless::Api"

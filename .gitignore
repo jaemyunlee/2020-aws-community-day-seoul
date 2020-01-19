@@ -8,3 +8,9 @@ terraform.tfstate
 # SAM
 .aws-sam
 packaged.yaml
+
+# Python
+__pycache__
+
+# Taskcat
+taskcat_outputs
